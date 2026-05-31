@@ -1,0 +1,36 @@
+services:
+  notification_db:
+    image: postgres:16
+    container_name: notification_db
+    command: -p 5413
+    expose:
+      - 5413
+    env_file:
+      - .env-non-dev
+    volumes:
+      - postgres_notification_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -p 5413",
+        ]
+      interval: 3s
+      timeout: 5s
+      retries: 5
+  notification_backend:
+    build:
+      context: .
+    env_file:
+      - .env-non-dev
+    container_name: notification_backend
+    command: ["/backend/docker/app.sh"]
+    ports:
+      - 8000:8000
+    depends_on:
+      notification_db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_notification_data:

@@ -1,0 +1,11 @@
+services:
+  gateway_backend:
+    build:
+      context: .
+    env_file:
+      - .env-non-dev
+    container_name: gateway_backend
+    command: ["/app/docker/app.sh"]
+    ports:
+      - 8000:8000
+    restart: unless-stopped

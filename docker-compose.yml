@@ -1,0 +1,162 @@
+services:
+  rabbitmq_doc:
+    image: rabbitmq:3.10.7-management
+    container_name: rabbitmq_doc
+    hostname: rabbitmq_doc
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  redis_doc:
+    image: redis:7
+    ports:
+      - 6379:6379
+  redis_gui:
+    image: redis/redisinsight
+    ports:
+      - 5540:5540
+  db_main_backend_doc:
+    image: postgres:16
+    container_name: db_main_backend_doc
+    command: -p 1221
+    expose:
+      - 1221
+    env_file:
+      - ./backend/.env-non-dev
+  agent_app_doc:
+    build:
+      context: ./agent
+    env_file:
+      - ./agent/.env-non-dev
+    container_name: agent_app_doc
+    command:
+      [
+        "gunicorn",
+        "app.main:app",
+        "--workers",
+        "4",
+        "--worker-class",
+        "uvicorn.workers.UvicornWorker",
+        "--bind",
+        "0.0.0.0:8000",
+      ]
+    ports:
+      - "8004:8000"
+    depends_on:
+      rabbitmq_doc:
+        condition: service_healthy
+      db_main_backend_doc:
+        condition: service_started
+    restart: unless-stopped
+  bot_app_doc:
+    build:
+      context: ./bot
+    env_file:
+      - ./bot/.env-non-dev
+    container_name: bot_app_doc
+    command: ["python3", "-m", "app.main"]
+    depends_on:
+      rabbitmq_doc:
+        condition: service_started
+    restart: unless-stopped
+  db_auth_service_doc:
+    image: postgres:16
+    container_name: db_auth_service_doc
+    command: -p 1224
+    expose:
+      - 1224
+    env_file:
+      - ./auth/.env-non-dev
+  auth_service_doc:
+    build:
+      context: ./auth
+    env_file:
+      - ./auth/.env-non-dev
+    container_name: auth_service_doc
+    command: ["/app/docker/app.sh"]
+    ports:
+      - 8002:8000
+    depends_on:
+      rabbitmq_doc:
+        condition: service_healthy
+      db_auth_service_doc:
+        condition: service_started
+    restart: unless-stopped
+  backend_app_doc:
+    build:
+      context: ./backend
+    env_file:
+      - ./backend/.env-non-dev
+    container_name: backend_app_doc
+    command: ["/app/docker/app.sh"]
+    ports:
+      - 8001:8000
+    volumes:
+      - ./doc:/app/doc
+    depends_on:
+      rabbitmq_doc:
+        condition: service_healthy
+      db_main_backend_doc:
+        condition: service_started
+    restart: unless-stopped
+  notification_db:
+    image: postgres:16
+    container_name: notification_db
+    command: -p 5413
+    expose:
+      - 5413
+    env_file:
+      - ./notification/.env-non-dev
+    volumes:
+      - postgres_notification_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -p 5413"]
+      interval: 3s
+      timeout: 5s
+      retries: 5
+  notification_backend:
+    build:
+      context: ./notification/.
+    env_file:
+      - ./notification/.env-non-dev
+    container_name: notification_backend
+    command: ["/app/docker/app.sh"]
+    ports:
+      - 8003:8000
+    depends_on:
+      rabbitmq_doc:
+        condition: service_healthy
+      notification_db:
+        condition: service_healthy
+    restart: unless-stopped
+  gateway_backend:
+    build:
+      context: ./gateway/.
+    env_file:
+      - ./gateway/.env-non-dev
+    container_name: gateway_backend
+    command: ["/app/docker/app.sh"]
+    ports:
+      - 8000:8000
+    restart: unless-stopped
+  frontend_doc:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_YANDEX_MAPS_API_KEY: ${VITE_YANDEX_MAPS_API_KEY:-}
+    container_name: frontend_doc
+    ports:
+      - "8080:80"
+    depends_on:
+      - gateway_backend
+    restart: unless-stopped
+
+volumes:
+  postgres_notification_data:

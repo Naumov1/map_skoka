@@ -1,0 +1,33 @@
+services:
+  auth_service_db:
+    image: postgres:16
+    container_name: auth_service_db
+    command: -p 1224
+    expose:
+      - 1224
+    env_file:
+      - .env-non-dev
+    volumes:
+      - postgres_auth_service_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -p 1224"]
+      interval: 3s
+      timeout: 5s
+      retries: 5
+  auth_service_backend:
+    build:
+      context: .
+    env_file:
+      - .env-non-dev
+    container_name: auth_service_backend
+    command: ["/backend/docker/app.sh"]
+    ports:
+      - 8000:8000
+    depends_on:
+      auth_service_db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_auth_service_data:
