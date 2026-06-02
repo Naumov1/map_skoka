@@ -150,7 +150,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_YANDEX_MAPS_API_KEY: ${VITE_YANDEX_MAPS_API_KEY:-}
+        VITE_DGIS_MAPGL_KEY: ${VITE_DGIS_MAPGL_KEY:-}
     container_name: frontend_doc
     ports:
       - "8080:80"

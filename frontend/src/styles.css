@@ -1786,57 +1786,25 @@ body[data-theme="lemme"] .beam-two {
     linear-gradient(135deg, #f8fafc 0%, #eef6ff 46%, #f1f5f9 100%);
 }
 
-.yandex-map-shell,
-.yandex-map-node {
+.dgis-map-shell,
+.dgis-map-node {
   position: absolute;
   inset: 0;
 }
 
-.yandex-map-shell {
+.dgis-map-shell {
   z-index: 2;
   overflow: hidden;
+  background: #e8eef4;
 }
 
-.yandex-map-node {
+.dgis-map-node {
+  width: 100%;
+  height: 100%;
   background: #eef2f7;
 }
 
-.yandex-canvas-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  overflow: hidden;
-  background: #e8eef4;
-}
-
-.yandex-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.yandex-tile-layer {
-  position: absolute;
-  inset: -1px;
-  z-index: 2;
-  overflow: hidden;
-  background: #e8eef4;
-  transform: translateZ(0);
-}
-
-.yandex-tile {
-  position: absolute;
-  display: block;
-  object-fit: cover;
-  user-select: none;
-  backface-visibility: hidden;
-  transform: translateZ(0);
-  image-rendering: auto;
-}
-
-.yandex-tile-layer::after {
+.dgis-map-shell::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -1844,7 +1812,7 @@ body[data-theme="lemme"] .beam-two {
   pointer-events: none;
 }
 
-.yandex-map-message {
+.dgis-map-message {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -1861,31 +1829,13 @@ body[data-theme="lemme"] .beam-two {
   box-shadow: 0 20px 55px rgba(15, 23, 42, 0.16);
 }
 
-.yandex-map-message b {
+.dgis-map-message b {
   color: #111827;
   font-size: 16px;
 }
 
-.yandex-map-message span {
+.dgis-map-message span {
   line-height: 1.5;
-}
-
-.live-yandex-map .yandex-map-shell {
-  z-index: 2;
-}
-
-.live-yandex-map .voronezh-map,
-.live-yandex-map .city-outline,
-.live-yandex-map .district-zone,
-.live-yandex-map .map-road,
-.live-yandex-map .map-river,
-.live-yandex-map .map-reservoir,
-.live-yandex-map .map-label,
-.live-yandex-map .map-district,
-.live-yandex-map .risk-zone-spot,
-.live-yandex-map .risk-marker,
-.live-yandex-map > .real-map-attribution {
-  display: none;
 }
 
 .risk-map-canvas > .real-map-attribution {
@@ -1899,31 +1849,6 @@ body[data-theme="lemme"] .beam-two {
   width: 100%;
   height: 100%;
   display: none;
-  pointer-events: none;
-}
-
-.osm-tile-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  overflow: hidden;
-  background: #dbeafe;
-}
-
-.osm-tile {
-  position: absolute;
-  display: block;
-  object-fit: cover;
-  user-select: none;
-}
-
-.osm-tile-layer::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at 48% 48%, rgba(255, 255, 255, 0.06), transparent 28%),
-    linear-gradient(180deg, rgba(248, 250, 252, 0.04), rgba(15, 23, 42, 0.08));
   pointer-events: none;
 }
 

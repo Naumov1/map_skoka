@@ -34,34 +34,20 @@ import { declension, formatDate, isAdminRole, isNotificationRead, isUserRole, no
 type Toast = { id: number; text: string };
 type Page = "login" | "register" | "admin-apps" | "risk-map" | "details" | "conclusions" | "create-conclusion" | "signed" | "admin-notifications" | "admin-profile" | "user-home" | "user-create" | "user-apps" | "user-notifications" | "user-profile";
 type ThemeMode = "default" | "cinema" | "lemme";
-type YandexGeoObject = {
-  events?: {
-    add: (eventName: string, callback: () => void) => void;
-  };
-};
-type YandexMapInstance = {
-  geoObjects: {
-    add: (object: YandexGeoObject) => void;
-  };
-  controls: {
-    remove: (name: string) => void;
-  };
-  behaviors?: {
-    disable: (name: string | string[]) => void;
-  };
+type DgisMapInstance = {
   destroy: () => void;
 };
-type YandexMapsApi = {
-  ready: (callback: () => void) => void;
-  Map: new (container: HTMLElement, state: Record<string, unknown>, options?: Record<string, unknown>) => YandexMapInstance;
-  Placemark: new (coordinates: [number, number], properties?: Record<string, unknown>, options?: Record<string, unknown>) => YandexGeoObject;
-  Circle: new (geometry: [[number, number], number], properties?: Record<string, unknown>, options?: Record<string, unknown>) => YandexGeoObject;
+type DgisMapglApi = {
+  Map: new (container: HTMLElement, options: Record<string, unknown>) => DgisMapInstance;
 };
 
 declare global {
   interface Window {
-    ymaps?: YandexMapsApi;
-    yandexMapsPromise?: Promise<YandexMapsApi>;
+    mapgl?: DgisMapglApi;
+    System?: {
+      import: (url: string) => Promise<DgisMapglApi>;
+    };
+    dgisMapglPromise?: Promise<DgisMapglApi>;
   }
 }
 
@@ -910,9 +896,8 @@ type RiskZone = {
 };
 
 const currentYear = 2026;
-const yandexMapsApiKey = String(import.meta.env.VITE_YANDEX_MAPS_API_KEY || "").trim();
-const voronezhTileMap = {
-  zoom: 14,
+const dgisMapglApiKey = String(import.meta.env.VITE_DGIS_MAPGL_KEY || "").trim();
+const voronezhMapViewport = {
   north: 51.725,
   south: 51.605,
   west: 39.105,
@@ -1013,44 +998,35 @@ function hashAddress(value: string) {
   return Array.from(value).reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) % 9973, 17);
 }
 
-function lonToTile(lng: number, zoom: number) {
-  return ((lng + 180) / 360) * 2 ** zoom;
+function projectLng(lng: number) {
+  return (lng + 180) / 360;
 }
 
-function latToTile(lat: number, zoom: number) {
+function projectLat(lat: number) {
   const radians = lat * Math.PI / 180;
-  return (1 - Math.log(Math.tan(radians) + 1 / Math.cos(radians)) / Math.PI) / 2 * 2 ** zoom;
+  return (1 - Math.log(Math.tan(radians) + 1 / Math.cos(radians)) / Math.PI) / 2;
 }
 
-function getVoronezhTileBounds() {
-  const zoom = voronezhTileMap.zoom;
-  const xMin = lonToTile(voronezhTileMap.west, zoom);
-  const xMax = lonToTile(voronezhTileMap.east, zoom);
-  const yMin = latToTile(voronezhTileMap.north, zoom);
-  const yMax = latToTile(voronezhTileMap.south, zoom);
-  const xStart = Math.floor(xMin);
-  const xEnd = Math.ceil(xMax) - 1;
-  const yStart = Math.floor(yMin);
-  const yEnd = Math.ceil(yMax) - 1;
+function getVoronezhMapBounds() {
+  const xMin = projectLng(voronezhMapViewport.west);
+  const xMax = projectLng(voronezhMapViewport.east);
+  const yMin = projectLat(voronezhMapViewport.north);
+  const yMax = projectLat(voronezhMapViewport.south);
   return {
     xMin,
     xMax,
-    xStart,
-    xEnd,
     yMin,
     yMax,
-    yStart,
-    yEnd,
     width: xMax - xMin,
     height: yMax - yMin
   };
 }
 
 function coordinateToMapPosition(lat: number, lng: number) {
-  const bounds = getVoronezhTileBounds();
+  const bounds = getVoronezhMapBounds();
   return {
-    x: Math.max(5, Math.min(95, (lonToTile(lng, voronezhTileMap.zoom) - bounds.xMin) / bounds.width * 100)),
-    y: Math.max(5, Math.min(95, (latToTile(lat, voronezhTileMap.zoom) - bounds.yMin) / bounds.height * 100))
+    x: Math.max(5, Math.min(95, (projectLng(lng) - bounds.xMin) / bounds.width * 100)),
+    y: Math.max(5, Math.min(95, (projectLat(lat) - bounds.yMin) / bounds.height * 100))
   };
 }
 
@@ -1061,296 +1037,90 @@ function riskMarkerPosition(point: RiskPoint) {
   return { x: point.x, y: point.y };
 }
 
-const yandexTileCache = new Map<string, Promise<HTMLImageElement>>();
+function loadDgisMapgl() {
+  if (window.mapgl) return Promise.resolve(window.mapgl);
+  if (window.dgisMapglPromise) return window.dgisMapglPromise;
 
-function loadYandexTile(url: string) {
-  const cached = yandexTileCache.get(url);
-  if (cached) return cached;
-
-  const promise = new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.decoding = "async";
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Tile failed"));
-    image.src = url;
-  });
-  yandexTileCache.set(url, promise);
-  return promise;
-}
-
-function YandexTileLayer() {
-  const bounds = useMemo(() => getVoronezhTileBounds(), []);
-  const tiles = useMemo(() => {
-    const result = [];
-    for (let x = bounds.xStart; x <= bounds.xEnd; x += 1) {
-      for (let y = bounds.yStart; y <= bounds.yEnd; y += 1) {
-        result.push({ x, y });
-      }
-    }
-    return result;
-  }, [bounds.xEnd, bounds.xStart, bounds.yEnd, bounds.yStart]);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!yandexMapsApiKey) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    let disposed = false;
-    let renderId = 0;
-
-    const render = () => {
-      const rect = canvas.getBoundingClientRect();
-      const width = Math.max(1, Math.round(rect.width));
-      const height = Math.max(1, Math.round(rect.height));
-      const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-      const currentRender = ++renderId;
-      const context = canvas.getContext("2d");
-      if (!context) return;
-
-      canvas.width = Math.round(width * pixelRatio);
-      canvas.height = Math.round(height * pixelRatio);
-      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-      context.clearRect(0, 0, width, height);
-      context.fillStyle = "#e8eef4";
-      context.fillRect(0, 0, width, height);
-      context.imageSmoothingEnabled = true;
-      context.imageSmoothingQuality = "high";
-
-      let loaded = 0;
-      let finished = 0;
-
-      tiles.forEach((tile) => {
-        const url = `https://tiles.api-maps.yandex.ru/v1/tiles/?apikey=${encodeURIComponent(yandexMapsApiKey)}&lang=ru_RU&x=${tile.x}&y=${tile.y}&z=${voronezhTileMap.zoom}&l=map&projection=web_mercator&maptype=map&scale=2`;
-        loadYandexTile(url)
-          .then((image) => {
-            if (disposed || currentRender !== renderId) return;
-
-            const left = (tile.x - bounds.xMin) / bounds.width * width;
-            const top = (tile.y - bounds.yMin) / bounds.height * height;
-            const right = (tile.x + 1 - bounds.xMin) / bounds.width * width;
-            const bottom = (tile.y + 1 - bounds.yMin) / bounds.height * height;
-            const drawLeft = Math.floor(left) - 1;
-            const drawTop = Math.floor(top) - 1;
-            const drawWidth = Math.ceil(right) - drawLeft + 2;
-            const drawHeight = Math.ceil(bottom) - drawTop + 2;
-            context.drawImage(image, drawLeft, drawTop, drawWidth, drawHeight);
-            loaded += 1;
-          })
-          .catch(() => undefined)
-          .finally(() => {
-            if (disposed || currentRender !== renderId) return;
-            finished += 1;
-            if (finished === tiles.length) {
-              setError(loaded > 0 ? "" : "Яндекс не отдал тайлы карты. Проверьте ключ Tiles API и доступ к tiles.api-maps.yandex.ru.");
-            }
-          });
-      });
+  window.dgisMapglPromise = new Promise((resolve, reject) => {
+    const resolveMapgl = (mapgl: DgisMapglApi) => {
+      window.mapgl = mapgl;
+      resolve(mapgl);
     };
 
-    const observer = new ResizeObserver(render);
-    observer.observe(canvas);
-    render();
-
-    return () => {
-      disposed = true;
-      observer.disconnect();
-    };
-  }, [bounds.height, bounds.width, bounds.xMin, bounds.yMin, tiles]);
-
-  if (!yandexMapsApiKey) {
-    return (
-      <div className="yandex-map-shell" aria-hidden="true">
-        <div className="yandex-map-message">
-          <b>Нужен ключ Яндекс Tiles API</b>
-          <span>Добавьте VITE_YANDEX_MAPS_API_KEY и пересоберите frontend_doc, чтобы включить реальную карту Воронежа.</span>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="yandex-canvas-layer" aria-hidden="true">
-      <canvas className="yandex-canvas" ref={canvasRef} />
-      <span className="map-attribution real-map-attribution">© Яндекс Карты</span>
-      {error && <div className="yandex-map-message"><b>Карта не загрузилась</b><span>{error}</span></div>}
-    </div>
-  );
-}
-
-function loadYandexMaps(apiKey: string) {
-  if (window.ymaps) return Promise.resolve(window.ymaps);
-  if (window.yandexMapsPromise) return window.yandexMapsPromise;
-
-  window.yandexMapsPromise = new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.async = true;
-    script.src = `https://api-maps.yandex.ru/2.1/?apikey=${encodeURIComponent(apiKey)}&lang=ru_RU`;
-    script.onload = () => {
-      if (!window.ymaps) {
-        reject(new Error("Yandex Maps API is not available"));
+    const importMapgl = () => {
+      if (!window.System?.import) {
+        reject(new Error("SystemJS is not available"));
         return;
       }
-      window.ymaps.ready(() => resolve(window.ymaps as YandexMapsApi));
+      window.System.import("https://mapgl.2gis.com/api/js/v1")
+        .then(resolveMapgl)
+        .catch(reject);
     };
-    script.onerror = () => reject(new Error("Failed to load Yandex Maps API"));
+
+    if (window.System?.import) {
+      importMapgl();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.async = true;
+    script.src = "https://unpkg.com/systemjs@6.14.1/dist/system.min.js";
+    script.onload = importMapgl;
+    script.onerror = () => reject(new Error("Failed to load SystemJS"));
     document.head.appendChild(script);
   });
 
-  return window.yandexMapsPromise;
+  return window.dgisMapglPromise;
 }
 
-function escapeHtml(value = "") {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function riskColor(level: RiskLevel) {
-  if (level === "critical") return "#dc2626";
-  if (level === "high") return "#f97316";
-  if (level === "medium") return "#f59e0b";
-  return "#0ea5e9";
-}
-
-function riskMapBalloon(point: RiskPoint) {
-  return [
-    `<b>${escapeHtml(point.address)}</b>`,
-    `Риск: ${escapeHtml(riskLabel(point.level))} (${point.score})`,
-    `Проблема: ${escapeHtml(point.issue)}`,
-    `Прогноз: ${escapeHtml(point.forecast)}`
-  ].join("<br>");
-}
-
-function YandexRiskMap({ points, zones, onSelect }: { points: RiskPoint[]; zones: RiskZone[]; onSelect: (id: string) => void }) {
+function DgisMapLayer() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!yandexMapsApiKey || !containerRef.current) return;
+    if (!dgisMapglApiKey || !containerRef.current) return;
 
     let disposed = false;
-    let map: YandexMapInstance | null = null;
+    let map: DgisMapInstance | null = null;
     setError("");
 
-    loadYandexMaps(yandexMapsApiKey)
-      .then((ymaps) => {
+    loadDgisMapgl()
+      .then((mapgl) => {
         if (disposed || !containerRef.current) return;
 
-        map = new ymaps.Map(
-          containerRef.current,
-          {
-            center: [51.668, 39.205],
-            zoom: 12,
-            controls: ["zoomControl", "fullscreenControl"]
-          },
-          {
-            suppressMapOpenBlock: true
-          }
-        );
-        map.behaviors?.disable("scrollZoom");
-        map.controls.remove("searchControl");
-        map.controls.remove("trafficControl");
-        map.controls.remove("geolocationControl");
-
-        zones.forEach((zone) => {
-          const color = riskColor(zone.level);
-          const circle = new ymaps.Circle(
-            [[zone.lat, zone.lng], zone.radiusKm * 1000],
-            {
-              hintContent: `${zone.name}: ${riskLabel(zone.level)} (${zone.score})`,
-              balloonContent: `<b>${escapeHtml(zone.name)}</b><br>Средний риск: ${zone.score}<br>${escapeHtml(zone.action)}`
-            },
-            {
-              fillColor: color,
-              fillOpacity: 0.15,
-              strokeColor: color,
-              strokeOpacity: 0.55,
-              strokeWidth: 2
-            }
-          );
-          map?.geoObjects.add(circle);
-        });
-
-        points.forEach((point) => {
-          if (typeof point.lat !== "number" || typeof point.lng !== "number") return;
-          const placemark = new ymaps.Placemark(
-            [point.lat, point.lng],
-            {
-              hintContent: point.address,
-              balloonContent: riskMapBalloon(point)
-            },
-            {
-              preset: point.source === "forecast" ? "islands#circleDotIcon" : "islands#circleIcon",
-              iconColor: riskColor(point.level)
-            }
-          );
-          placemark.events?.add("click", () => onSelect(point.id));
-          map?.geoObjects.add(placemark);
+        map = new mapgl.Map(containerRef.current, {
+          center: [39.205, 51.668],
+          zoom: 12.2,
+          key: dgisMapglApiKey
         });
       })
       .catch(() => {
-        if (!disposed) setError("Не удалось загрузить Яндекс.Карты. Проверьте API-ключ и доступ к api-maps.yandex.ru.");
+        if (!disposed) {
+          setError("Не удалось загрузить карту 2ГИС. Проверьте ключ VITE_DGIS_MAPGL_KEY и доступ к mapgl.2gis.com.");
+        }
       });
 
     return () => {
       disposed = true;
       map?.destroy();
     };
-  }, [onSelect, points, zones]);
+  }, []);
 
-  if (!yandexMapsApiKey) {
+  if (!dgisMapglApiKey) {
     return (
-      <div className="yandex-map-shell">
-        <div className="yandex-map-message">
-          <b>Нужен ключ Яндекс.Карт</b>
-          <span>Добавьте VITE_YANDEX_MAPS_API_KEY и пересоберите frontend_doc. После этого здесь будет живая карта Воронежа с привязанными метками.</span>
+      <div className="dgis-map-shell" aria-hidden="true">
+        <div className="dgis-map-message">
+          <b>Нужен ключ 2ГИС MapGL</b>
+          <span>Добавьте VITE_DGIS_MAPGL_KEY и пересоберите frontend_doc, чтобы включить реальную карту Воронежа.</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="yandex-map-shell">
-      <div className="yandex-map-node" ref={containerRef} />
-      {error && <div className="yandex-map-message"><b>Карта не загрузилась</b><span>{error}</span></div>}
-    </div>
-  );
-}
-
-function VoronezhTileMap() {
-  const bounds = getVoronezhTileBounds();
-  const tiles = [];
-  for (let x = bounds.xStart; x <= bounds.xEnd; x += 1) {
-    for (let y = bounds.yStart; y <= bounds.yEnd; y += 1) {
-      tiles.push({ x, y });
-    }
-  }
-
-  return (
-    <div className="osm-tile-layer" aria-hidden="true">
-      {tiles.map((tile) => (
-        <img
-          alt=""
-          className="osm-tile"
-          draggable={false}
-          key={`${tile.x}-${tile.y}`}
-          loading="lazy"
-          src={`https://tile.openstreetmap.org/${voronezhTileMap.zoom}/${tile.x}/${tile.y}.png`}
-          style={{
-            left: `${(tile.x - bounds.xStart) / bounds.width * 100}%`,
-            top: `${(tile.y - bounds.yStart) / bounds.height * 100}%`,
-            width: `${100 / bounds.width}%`,
-            height: `${100 / bounds.height}%`
-          }}
-        />
-      ))}
-      <span className="map-attribution">© OpenStreetMap</span>
+    <div className="dgis-map-shell" aria-hidden="true">
+      <div className="dgis-map-node" ref={containerRef} />
+      {error && <div className="dgis-map-message"><b>Карта не загрузилась</b><span>{error}</span></div>}
     </div>
   );
 }
@@ -1364,8 +1134,8 @@ function findReference(address = "", index = 0) {
   const found = referenceBuildings.find((item) => normalized.includes(item.address.toLowerCase().replace("г. воронеж, ", "")) || normalized.includes(item.address.toLowerCase()));
   if (found) return found;
   const hash = hashAddress(address || String(index));
-  const lat = voronezhTileMap.south + ((hash * 7) % 1000) / 1000 * (voronezhTileMap.north - voronezhTileMap.south);
-  const lng = voronezhTileMap.west + (hash % 1000) / 1000 * (voronezhTileMap.east - voronezhTileMap.west);
+  const lat = voronezhMapViewport.south + ((hash * 7) % 1000) / 1000 * (voronezhMapViewport.north - voronezhMapViewport.south);
+  const lng = voronezhMapViewport.west + (hash % 1000) / 1000 * (voronezhMapViewport.east - voronezhMapViewport.west);
   return {
     address: address || `Объект без адреса ${index + 1}`,
     street: address.split(",")[0] || "улица не определена",
@@ -1622,7 +1392,7 @@ function RiskMapPage({ show }: { show: (message: string) => void }) {
         <section className="risk-map-layout">
           <div className="risk-map-panel">
             <div className="risk-map-canvas" aria-label="Карта риска аварийности">
-              <YandexTileLayer />
+              <DgisMapLayer />
               <svg className="voronezh-map" viewBox="0 0 1000 680" role="img" aria-label="Условная схема Воронежа">
                 <defs>
                   <linearGradient id="cityLand" x1="0" x2="1" y1="0" y2="1">
