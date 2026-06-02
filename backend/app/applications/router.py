@@ -8,6 +8,7 @@ from app.applications.schemas import (
     ResponseCommissionAnalysis,
     ResponseCountApplications,
     ResponseDetailApplications,
+    ResponseRiskMapApplications,
     ResponseStreetsApplications,
     SApplicationsDeparture,
     SCreateApplications,
@@ -71,6 +72,11 @@ async def delete_applications_api(
 @router.get("/all", response_model=ResponseCountApplications)
 async def all_applications_api(current_user: Users = Depends(get_employee_user)):
     return await ApplicationsService.all_applications()
+
+
+@router.get("/risk-map", response_model=ResponseRiskMapApplications)
+async def risk_map_applications_api():
+    return await ApplicationsService.risk_map_applications()
 
 
 @router.get("/detail/{id}", response_model=ResponseApplication)

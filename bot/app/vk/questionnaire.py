@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass, field
 
 from app.commission_analyzer import analyze_statement
@@ -14,11 +15,32 @@ class QuestionStep:
 class QuestionnaireSession:
     answers: dict[str, str] = field(default_factory=dict)
     step_index: int = 0
+    pending_address: str | None = None
 
 
 QUESTIONNAIRE_COMMANDS = ("/anketa", "/анкета", "/zayavka", "/заявка")
 QUESTIONNAIRE_CANCEL_COMMANDS = ("/cancel", "/отмена")
 QUESTIONNAIRE_SKIP_COMMANDS = ("/skip", "/пропустить", "-")
+ADDRESS_CONFIRM_YES = ("да", "верно", "правильно", "ок", "ok", "yes", "y", "+")
+ADDRESS_CONFIRM_NO = ("нет", "не", "неверно", "ошибка", "исправить", "no", "n", "-")
+
+ADDRESS_MARKERS = (
+    "ул",
+    "улица",
+    "проспект",
+    "пр-т",
+    "пер",
+    "переулок",
+    "бульвар",
+    "бул",
+    "шоссе",
+    "площадь",
+    "пл",
+    "набережная",
+    "наб",
+    "микрорайон",
+    "мкр",
+)
 
 ISSUE_MARKERS = (
     "аварийн",
@@ -140,6 +162,22 @@ def handle_questionnaire_answer(user_id: int, text: str) -> str:
     if lowered in QUESTIONNAIRE_CANCEL_COMMANDS:
         return cancel_questionnaire(user_id)
 
+    if session.pending_address is not None:
+        confirmation = _parse_address_confirmation(text)
+        if confirmation is True:
+            session.answers["address"] = session.pending_address
+            session.pending_address = None
+            session.step_index += 1
+            return _format_question(session)
+        if confirmation is False:
+            session.pending_address = None
+            return "Хорошо, адрес не сохраняю. Напишите его еще раз.\n\n" + _format_question(session)
+        return (
+            "Ответьте, пожалуйста: да или нет.\n\n"
+            f"Адрес верный?\n{session.pending_address}\n\n"
+            "Если адрес неверный, напишите нет, и я попрошу ввести его заново."
+        )
+
     current_step = STEPS[session.step_index]
     if lowered in QUESTIONNAIRE_SKIP_COMMANDS:
         if current_step.required:
@@ -157,6 +195,10 @@ def handle_questionnaire_answer(user_id: int, text: str) -> str:
             + _format_question(session)
         )
 
+    if current_step.key == "address" and _address_needs_confirmation(value):
+        session.pending_address = value
+        return _format_address_confirmation(value)
+
     if current_step.key == "request" and value.lower() in ("авто", "auto"):
         value = _suggest_request(session.answers)
 
@@ -170,6 +212,40 @@ def handle_questionnaire_answer(user_id: int, text: str) -> str:
         return _format_result(answers)
 
     return _format_question(session)
+
+
+def _parse_address_confirmation(text: str) -> bool | None:
+    answer = re.sub(r"[.!?]+$", "", text.strip().lower())
+    if answer in ADDRESS_CONFIRM_YES or answer.startswith(("да ", "верно", "правильно")):
+        return True
+    if answer in ADDRESS_CONFIRM_NO or answer.startswith(("нет ", "невер", "исправ")):
+        return False
+    return None
+
+
+def _address_needs_confirmation(address: str) -> bool:
+    normalized = re.sub(r"\s+", " ", address.strip().lower())
+    if len(normalized) < 8:
+        return True
+
+    has_house_number = bool(re.search(r"\d", normalized))
+    if not has_house_number:
+        return True
+
+    tokens = [token.strip(".,:;()[]") for token in normalized.split()]
+    has_address_marker = any(token in ADDRESS_MARKERS for token in tokens)
+    word_count = sum(1 for token in tokens if re.search(r"[а-яa-z]", token))
+
+    return not (has_address_marker or word_count >= 2)
+
+
+def _format_address_confirmation(address: str) -> str:
+    return (
+        "Не смог уверенно распознать адрес:\n"
+        f"{address}\n\n"
+        "Адрес верный? Напишите да, чтобы продолжить, или нет, чтобы ввести адрес заново.\n"
+        "Можно отменить анкету командой /cancel."
+    )
 
 
 def _format_question(session: QuestionnaireSession) -> str:

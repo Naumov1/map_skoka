@@ -25,7 +25,7 @@ import {
   UserCircle,
   Users
 } from "lucide-react";
-import { apiFileUrl, requestJson } from "./api";
+import { API_BASE, apiFileUrl, requestJson } from "./api";
 import type { Application, CommissionAnalysis, Conclusion, NotificationItem, Signature, Street, User } from "./types";
 import { declension, formatDate, isAdminRole, isNotificationRead, isUserRole, normalizeRole, normalizeUser } from "./utils";
 
@@ -34,7 +34,6 @@ type Page = "login" | "register" | "admin-apps" | "risk-map" | "details" | "conc
 type ThemeMode = "default" | "cinema" | "lemme";
 type DgisMapInstance = {
   destroy: () => void;
-  getZoom: () => number;
 };
 type DgisMarkerInstance = {
   destroy: () => void;
@@ -45,9 +44,6 @@ type DgisMarkerOptions = {
   icon: string;
   size: [number, number];
   anchor: [number, number];
-  hoverIcon?: string;
-  hoverSize?: [number, number];
-  hoverAnchor?: [number, number];
   zIndex?: number;
 };
 type DgisCircleInstance = {
@@ -455,6 +451,162 @@ const demoApplications: Application[] = [
     commission_analysis: "Проверить подвал, канализацию, фундаментные стены, санитарное состояние и влияние влаги на конструкции.",
     status: "Назначен выезд",
     departure_date: "2026-06-01"
+  },
+  {
+    id: 1124,
+    fio: "Жители дома, учебное обращение",
+    phone: "не указан",
+    email: "sample-vrn@example.com",
+    street: "ул. Студенческая",
+    address: "г. Воронеж, ул. Студенческая, 12",
+    cadastral_number: "учебный пример",
+    problem: "В старом кирпичном доме со стороны двора осыпается штукатурка фасада, над входом видны трещины карниза. После ветра на тротуаре находили куски отделки.",
+    commission_analysis: "Проверить фасад, карниз, водостоки и входную группу. До осмотра ограничить проход под аварийным участком.",
+    status: "Срочный осмотр",
+    departure_date: "2026-06-02"
+  },
+  {
+    id: 1125,
+    fio: "Жители дома, учебное обращение",
+    phone: "не указан",
+    email: "sample-vrn@example.com",
+    street: "ул. Карла Маркса",
+    address: "г. Воронеж, ул. Карла Маркса, 55",
+    cadastral_number: "учебный пример",
+    problem: "Крыша протекает над третьим подъездом, вода попадает на электропроводку и щиток освещения. В подъезде пахнет сыростью, штукатурка потолка отходит пластами.",
+    commission_analysis: "Проверить кровлю, чердачное помещение, электрику подъезда и состояние потолочной отделки.",
+    status: "Назначен выезд",
+    departure_date: "2026-06-03"
+  },
+  {
+    id: 1126,
+    fio: "Жители дома, учебное обращение",
+    phone: "не указан",
+    email: "sample-vrn@example.com",
+    street: "ул. Комиссаржевской",
+    address: "г. Воронеж, ул. Комиссаржевской, 10",
+    cadastral_number: "учебный пример",
+    problem: "На фасаде исторического дома появились раскрытые трещины у оконных проемов. Жители опасаются падения кирпича и отделки на пешеходную часть.",
+    commission_analysis: "Проверить несущие участки фасада, оконные откосы, карниз и необходимость временного ограждения.",
+    status: "Срочный осмотр",
+    departure_date: "2026-06-02"
+  },
+  {
+    id: 1127,
+    fio: "Жители дома, учебное обращение",
+    phone: "не указан",
+    email: "sample-vrn@example.com",
+    street: "ул. Моисеева",
+    address: "г. Воронеж, ул. Моисеева, 37",
+    cadastral_number: "учебный пример",
+    problem: "В подвале стоит вода, после аварии канализации появились трещины в цоколе и сырость в квартирах первого этажа.",
+    commission_analysis: "Проверить подвал, цоколь, фундаментные стены, канализацию и вентиляцию технического подполья.",
+    status: "Назначен выезд",
+    departure_date: "2026-06-04"
+  },
+  {
+    id: 1128,
+    fio: "Жители дома, учебное обращение",
+    phone: "не указан",
+    email: "sample-vrn@example.com",
+    street: "ул. Матросова",
+    address: "г. Воронеж, ул. Матросова, 6",
+    cadastral_number: "учебный пример",
+    problem: "В подъезде разрушаются ступени и лестничная площадка, местами видна арматура. Перила держатся слабо, есть риск травмирования жильцов.",
+    commission_analysis: "Проверить лестничные марши, площадки, перила и состояние защитного слоя бетона.",
+    status: "Предписание к проверке",
+    departure_date: null
+  },
+  {
+    id: 1129,
+    fio: "Жители дома, учебное обращение",
+    phone: "не указан",
+    email: "sample-vrn@example.com",
+    street: "ул. Депутатская",
+    address: "г. Воронеж, ул. Депутатская, 11",
+    cadastral_number: "учебный пример",
+    problem: "С балконной плиты осыпается бетон, ограждение проржавело. Под балконом проходит тротуар к детской площадке.",
+    commission_analysis: "Проверить балконную плиту, ограждение, фасад вокруг балкона и ограничить проход при подтверждении риска.",
+    status: "Срочный осмотр",
+    departure_date: "2026-06-03"
+  },
+  {
+    id: 1130,
+    fio: "Жители дома, учебное обращение",
+    phone: "не указан",
+    email: "sample-vrn@example.com",
+    street: "ул. Пеше-Стрелецкая",
+    address: "г. Воронеж, ул. Пеше-Стрелецкая, 90",
+    cadastral_number: "учебный пример",
+    problem: "В панельном доме раскрылись межпанельные швы, после дождя мокнут углы квартир и появляется плесень. На фасаде заметны следы промерзания.",
+    commission_analysis: "Проверить межпанельные швы, герметизацию фасада, влажность стен и необходимость локального ремонта.",
+    status: "Заявление принято",
+    departure_date: null
+  },
+  {
+    id: 1131,
+    fio: "Жители дома, учебное обращение",
+    phone: "не указан",
+    email: "sample-vrn@example.com",
+    street: "ул. Ростовская",
+    address: "г. Воронеж, ул. Ростовская, 58",
+    cadastral_number: "учебный пример",
+    problem: "Кровля протекает над крайним подъездом, на чердаке влажные балки, в квартирах верхнего этажа появились пятна и запах сырости.",
+    commission_analysis: "Проверить кровлю, деревянные элементы чердака, водоотвод и состояние квартир верхнего этажа.",
+    status: "Назначен выезд",
+    departure_date: "2026-06-04"
+  },
+  {
+    id: 1132,
+    fio: "Жители дома, учебное обращение",
+    phone: "не указан",
+    email: "sample-vrn@example.com",
+    street: "ул. Новосибирская",
+    address: "г. Воронеж, ул. Новосибирская, 28",
+    cadastral_number: "учебный пример",
+    problem: "На фасадных плитах появились трещины, возле балконов осыпается бетон. Жители сообщают о падении небольших фрагментов после сильного ветра.",
+    commission_analysis: "Проверить фасадные плиты, балконные узлы, швы и участки возможного падения фрагментов.",
+    status: "Повторная проверка",
+    departure_date: null
+  },
+  {
+    id: 1133,
+    fio: "Жители дома, учебное обращение",
+    phone: "не указан",
+    email: "sample-vrn@example.com",
+    street: "ул. Димитрова",
+    address: "г. Воронеж, ул. Димитрова, 67",
+    cadastral_number: "учебный пример",
+    problem: "Козырек входной группы просел, крепления повреждены, по краю плиты видны сколы бетона. Входом ежедневно пользуются жильцы и дети.",
+    commission_analysis: "Проверить козырек, крепления, плиту входной группы и безопасность прохода.",
+    status: "Предписание к проверке",
+    departure_date: null
+  },
+  {
+    id: 1134,
+    fio: "Жители дома, учебное обращение",
+    phone: "не указан",
+    email: "sample-vrn@example.com",
+    street: "ул. Переверткина",
+    address: "г. Воронеж, ул. Переверткина, 24",
+    cadastral_number: "учебный пример",
+    problem: "На стыках панелей появились сквозные щели, зимой стены промерзают, после дождя в подъезде мокрые пятна. Требуется проверка фасада.",
+    commission_analysis: "Проверить межпанельные швы, фасадные панели и тепловой контур дома.",
+    status: "Заявление принято",
+    departure_date: null
+  },
+  {
+    id: 1135,
+    fio: "Жители дома, учебное обращение",
+    phone: "не указан",
+    email: "sample-vrn@example.com",
+    street: "ул. Артамонова",
+    address: "г. Воронеж, ул. Артамонова, 38",
+    cadastral_number: "учебный пример",
+    problem: "В старом доме протекает крыша, вода идет по стене подъезда и попадает в щиток освещения. На потолке видны вздутия штукатурки.",
+    commission_analysis: "Проверить кровлю, электрику подъезда, потолочную отделку и необходимость аварийного снятия штукатурки.",
+    status: "Срочный осмотр",
+    departure_date: "2026-06-02"
   }
 ];
 
@@ -503,6 +655,26 @@ function mergeWithPublicVoronezhApplications(applications: Application[]) {
     ...applications,
     ...publicVoronezhApplications.filter((application) => !addresses.has((application.address || "").toLowerCase()))
   ];
+}
+
+function mergeRiskMapApplications(...groups: Application[][]) {
+  const seen = new Set<string>();
+  return groups.flat().filter((application) => {
+    const key = `${application.id || ""}:${(application.address || "").toLowerCase().replace(/\s+/g, " ").trim()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+async function fetchApplicationsWithoutRedirect() {
+  const response = await fetch(`${API_BASE}/applications/risk-map`, {
+    credentials: "include",
+    headers: { accept: "application/json" }
+  });
+  if (!response.ok) return [];
+  const data = await response.json().catch(() => ({})) as { applications?: Application[] };
+  return Array.isArray(data.applications) ? data.applications : [];
 }
 
 function isDemoMode() {
@@ -1018,7 +1190,43 @@ const referenceBuildings = [
   { address: "г. Воронеж, ул. Космонавтов, 28", street: "ул. Космонавтов", lat: 51.6336, lng: 39.1669, x: 36, y: 68, year: 1966, series: "кирпичный пятиэтажный дом" },
   { address: "г. Воронеж, ул. Южно-Моравская, 22", street: "ул. Южно-Моравская", lat: 51.6129, lng: 39.1522, x: 32, y: 82, year: 1978, series: "панельный юго-западный фонд" },
   { address: "г. Воронеж, ул. Хользунова, 72", street: "ул. Хользунова", lat: 51.7041, lng: 39.1848, x: 49, y: 20, year: 1984, series: "панельный северный микрорайон" },
-  { address: "г. Воронеж, ул. Беговая, 219", street: "ул. Беговая", lat: 51.7077, lng: 39.1584, x: 39, y: 20, year: 1976, series: "панельный северный микрорайон" }
+  { address: "г. Воронеж, ул. Беговая, 219", street: "ул. Беговая", lat: 51.7077, lng: 39.1584, x: 39, y: 20, year: 1976, series: "панельный северный микрорайон" },
+  { address: "г. Воронеж, ул. Студенческая, 10", street: "ул. Студенческая", lat: 51.6724, lng: 39.1969, x: 50, y: 39, year: 1932, series: "старый кирпичный фонд центра" },
+  { address: "г. Воронеж, ул. Студенческая, 12", street: "ул. Студенческая", lat: 51.6728, lng: 39.1984, x: 51, y: 38, year: 1936, series: "старый кирпичный фонд центра" },
+  { address: "г. Воронеж, ул. Студенческая, 14", street: "ул. Студенческая", lat: 51.6731, lng: 39.2002, x: 52, y: 38, year: 1938, series: "старый кирпичный фонд центра" },
+  { address: "г. Воронеж, ул. Карла Маркса, 53", street: "ул. Карла Маркса", lat: 51.6698, lng: 39.2038, x: 53, y: 42, year: 1940, series: "старый кирпичный фонд центра" },
+  { address: "г. Воронеж, ул. Карла Маркса, 55", street: "ул. Карла Маркса", lat: 51.6706, lng: 39.2051, x: 54, y: 42, year: 1949, series: "старый кирпичный фонд центра" },
+  { address: "г. Воронеж, ул. Карла Маркса, 57", street: "ул. Карла Маркса", lat: 51.6712, lng: 39.2068, x: 55, y: 41, year: 1951, series: "старый кирпичный фонд центра" },
+  { address: "г. Воронеж, ул. Комиссаржевской, 8", street: "ул. Комиссаржевской", lat: 51.6669, lng: 39.2024, x: 53, y: 45, year: 1916, series: "исторический кирпичный фонд центра" },
+  { address: "г. Воронеж, ул. Комиссаржевской, 10", street: "ул. Комиссаржевской", lat: 51.6676, lng: 39.2041, x: 54, y: 44, year: 1914, series: "исторический кирпичный фонд центра" },
+  { address: "г. Воронеж, ул. Комиссаржевской, 12", street: "ул. Комиссаржевской", lat: 51.6682, lng: 39.2057, x: 55, y: 44, year: 1918, series: "исторический кирпичный фонд центра" },
+  { address: "г. Воронеж, ул. Моисеева, 35", street: "ул. Моисеева", lat: 51.6481, lng: 39.1987, x: 53, y: 62, year: 1960, series: "кирпичный пятиэтажный дом" },
+  { address: "г. Воронеж, ул. Моисеева, 37", street: "ул. Моисеева", lat: 51.6468, lng: 39.1994, x: 54, y: 64, year: 1962, series: "кирпичный пятиэтажный дом" },
+  { address: "г. Воронеж, ул. Моисеева, 39", street: "ул. Моисеева", lat: 51.6452, lng: 39.2009, x: 55, y: 65, year: 1964, series: "кирпичный пятиэтажный дом" },
+  { address: "г. Воронеж, ул. Матросова, 4", street: "ул. Матросова", lat: 51.6338, lng: 39.1832, x: 47, y: 73, year: 1965, series: "кирпичный пятиэтажный дом" },
+  { address: "г. Воронеж, ул. Матросова, 6", street: "ул. Матросова", lat: 51.6329, lng: 39.1854, x: 48, y: 74, year: 1966, series: "кирпичный пятиэтажный дом" },
+  { address: "г. Воронеж, ул. Матросова, 8", street: "ул. Матросова", lat: 51.6318, lng: 39.1871, x: 49, y: 75, year: 1968, series: "кирпичный пятиэтажный дом" },
+  { address: "г. Воронеж, ул. Депутатская, 9", street: "ул. Депутатская", lat: 51.6405, lng: 39.2054, x: 57, y: 72, year: 1970, series: "панельный левобережный фонд" },
+  { address: "г. Воронеж, ул. Депутатская, 11", street: "ул. Депутатская", lat: 51.6391, lng: 39.2078, x: 58, y: 73, year: 1972, series: "панельный левобережный фонд" },
+  { address: "г. Воронеж, ул. Депутатская, 13", street: "ул. Депутатская", lat: 51.6378, lng: 39.2102, x: 59, y: 75, year: 1974, series: "панельный левобережный фонд" },
+  { address: "г. Воронеж, ул. Пеше-Стрелецкая, 88", street: "ул. Пеше-Стрелецкая", lat: 51.6352, lng: 39.1621, x: 36, y: 70, year: 1978, series: "панельный юго-западный фонд" },
+  { address: "г. Воронеж, ул. Пеше-Стрелецкая, 90", street: "ул. Пеше-Стрелецкая", lat: 51.6341, lng: 39.1599, x: 35, y: 71, year: 1979, series: "панельный юго-западный фонд" },
+  { address: "г. Воронеж, ул. Пеше-Стрелецкая, 92", street: "ул. Пеше-Стрелецкая", lat: 51.6332, lng: 39.1574, x: 34, y: 72, year: 1980, series: "панельный юго-западный фонд" },
+  { address: "г. Воронеж, ул. Ростовская, 56", street: "ул. Ростовская", lat: 51.6624, lng: 39.2725, x: 82, y: 56, year: 1961, series: "старый левобережный фонд" },
+  { address: "г. Воронеж, ул. Ростовская, 58", street: "ул. Ростовская", lat: 51.6635, lng: 39.2751, x: 83, y: 55, year: 1963, series: "старый левобережный фонд" },
+  { address: "г. Воронеж, ул. Ростовская, 60", street: "ул. Ростовская", lat: 51.6647, lng: 39.2784, x: 85, y: 54, year: 1965, series: "старый левобережный фонд" },
+  { address: "г. Воронеж, ул. Новосибирская, 26", street: "ул. Новосибирская", lat: 51.6802, lng: 39.2974, x: 90, y: 50, year: 1973, series: "панельный левобережный фонд" },
+  { address: "г. Воронеж, ул. Новосибирская, 28", street: "ул. Новосибирская", lat: 51.6815, lng: 39.2992, x: 91, y: 49, year: 1975, series: "панельный левобережный фонд" },
+  { address: "г. Воронеж, ул. Новосибирская, 30", street: "ул. Новосибирская", lat: 51.6827, lng: 39.3011, x: 92, y: 48, year: 1977, series: "панельный левобережный фонд" },
+  { address: "г. Воронеж, ул. Димитрова, 65", street: "ул. Димитрова", lat: 51.6712, lng: 39.2852, x: 86, y: 53, year: 1968, series: "кирпичный пятиэтажный дом левый берег" },
+  { address: "г. Воронеж, ул. Димитрова, 67", street: "ул. Димитрова", lat: 51.6726, lng: 39.2874, x: 87, y: 52, year: 1969, series: "кирпичный пятиэтажный дом левый берег" },
+  { address: "г. Воронеж, ул. Димитрова, 69", street: "ул. Димитрова", lat: 51.6741, lng: 39.2891, x: 88, y: 51, year: 1970, series: "кирпичный пятиэтажный дом левый берег" },
+  { address: "г. Воронеж, ул. Переверткина, 22", street: "ул. Переверткина", lat: 51.7024, lng: 39.2436, x: 75, y: 29, year: 1977, series: "панельный левобережный фонд" },
+  { address: "г. Воронеж, ул. Переверткина, 24", street: "ул. Переверткина", lat: 51.7041, lng: 39.2458, x: 76, y: 28, year: 1979, series: "панельный левобережный фонд" },
+  { address: "г. Воронеж, ул. Переверткина, 26", street: "ул. Переверткина", lat: 51.7055, lng: 39.2485, x: 77, y: 27, year: 1981, series: "панельный левобережный фонд" },
+  { address: "г. Воронеж, ул. Артамонова, 36", street: "ул. Артамонова", lat: 51.7165, lng: 39.1664, x: 41, y: 12, year: 1972, series: "панельный северный микрорайон" },
+  { address: "г. Воронеж, ул. Артамонова, 38", street: "ул. Артамонова", lat: 51.7181, lng: 39.1687, x: 42, y: 11, year: 1974, series: "панельный северный микрорайон" },
+  { address: "г. Воронеж, ул. Артамонова, 40", street: "ул. Артамонова", lat: 51.7194, lng: 39.1711, x: 43, y: 10, year: 1976, series: "панельный северный микрорайон" }
 ];
 
 function hashAddress(value: string) {
@@ -1073,48 +1281,46 @@ function colorWithAlpha(hex: string, alpha: number) {
   return `${hex}${channel}`;
 }
 
-function markerZoomScale(zoom: number) {
-  return Math.max(0.62, Math.min(1.65, 1 + (zoom - 12.2) * 0.16));
+const riskMarkerIconCache = new Map<string, string>();
+const riskMarkerSize: [number, number] = [38, 38];
+
+function markerRenderSize(): [number, number] {
+  return [riskMarkerSize[0], riskMarkerSize[1]];
 }
 
-function markerRenderSize(selected: boolean, zoom: number): [number, number] {
-  const baseSize = selected ? 54 : 46;
-  const size = Math.round(baseSize * markerZoomScale(zoom));
-  return [size, size];
-}
+function riskMarkerIcon(point: RiskPoint) {
+  const cacheKey = `${point.level}-${point.source}-${point.score}`;
+  const cached = riskMarkerIconCache.get(cacheKey);
+  if (cached) return cached;
 
-function riskMarkerIcon(point: RiskPoint, selected: boolean, zoom: number) {
   const color = riskMarkerColor(point.level);
-  const ring = selected ? "#2563eb" : "#ffffff";
+  const ring = point.source === "forecast" ? "#2563eb" : "#ffffff";
   const dash = point.source === "forecast" ? 'stroke-dasharray="6 4"' : "";
-  const [size] = markerRenderSize(selected, zoom);
-  const baseSize = selected ? 54 : 46;
-  const scale = size / baseSize;
+  const [size] = markerRenderSize();
   const center = size / 2;
-  const ringWidth = (selected ? 5 : 4) * scale;
-  const outerRadius = (selected ? 22 : 18) * scale;
-  const innerRadius = (selected ? 16 : 13) * scale;
-  const fontSize = (selected ? 13 : 11) * scale;
+  const ringWidth = 3;
+  const outerRadius = 15;
+  const innerRadius = 11;
+  const fontSize = 10;
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-      <filter id="shadow" x="-40%" y="-40%" width="180%" height="180%">
-        <feDropShadow dx="0" dy="7" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.28"/>
-      </filter>
-      <circle cx="${center}" cy="${center}" r="${outerRadius}" fill="${color}" opacity="0.92" stroke="${ring}" stroke-width="${ringWidth}" ${dash} filter="url(#shadow)"/>
+      <circle cx="${center}" cy="${center}" r="${outerRadius}" fill="${color}" opacity="0.92" stroke="rgba(15,23,42,0.18)" stroke-width="1"/>
+      <circle cx="${center}" cy="${center}" r="${outerRadius - 2}" fill="${color}" opacity="0.96" stroke="${ring}" stroke-width="${ringWidth}" ${dash}/>
       <circle cx="${center}" cy="${center}" r="${innerRadius}" fill="rgba(255,255,255,0.2)" stroke="rgba(255,255,255,0.42)" stroke-width="1"/>
       <text x="${center}" y="${center + 4}" text-anchor="middle" font-family="Arial, sans-serif" font-size="${fontSize}" font-weight="800" fill="#ffffff">${point.score}</text>
     </svg>
   `;
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg.trim())}`;
+  const icon = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg.trim())}`;
+  riskMarkerIconCache.set(cacheKey, icon);
+  return icon;
 }
 
-function DgisMapLayer({ points, zones, selectedId, onSelect }: { points: RiskPoint[]; zones: RiskZone[]; selectedId?: string; onSelect: (id: string) => void }) {
+function DgisMapLayer({ points, zones, onSelect }: { points: RiskPoint[]; zones: RiskZone[]; onSelect: (id: string) => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<DgisMapInstance | null>(null);
   const mapglRef = useRef<DgisMapglApi | null>(null);
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
-  const [mapZoom, setMapZoom] = useState(12.2);
 
   useEffect(() => {
     if (!dgisMapglApiKey || !containerRef.current) return;
@@ -1133,7 +1339,6 @@ function DgisMapLayer({ points, zones, selectedId, onSelect }: { points: RiskPoi
           key: dgisMapglApiKey
         });
         mapRef.current = map;
-        setMapZoom(map.getZoom());
         setReady(true);
       })
       .catch(() => {
@@ -1152,28 +1357,6 @@ function DgisMapLayer({ points, zones, selectedId, onSelect }: { points: RiskPoi
   }, []);
 
   useEffect(() => {
-    if (!ready) return;
-
-    let frame = 0;
-    let lastZoom = Number.NaN;
-
-    const tick = () => {
-      const zoom = mapRef.current?.getZoom();
-      if (typeof zoom === "number") {
-        const roundedZoom = Math.round(zoom * 4) / 4;
-        if (roundedZoom !== lastZoom) {
-          lastZoom = roundedZoom;
-          setMapZoom(roundedZoom);
-        }
-      }
-      frame = window.requestAnimationFrame(tick);
-    };
-
-    frame = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frame);
-  }, [ready]);
-
-  useEffect(() => {
     if (!ready || !mapRef.current || !mapglRef.current) return;
 
     const map = mapRef.current;
@@ -1182,39 +1365,44 @@ function DgisMapLayer({ points, zones, selectedId, onSelect }: { points: RiskPoi
       const color = riskMarkerColor(zone.level);
       return new mapgl.Circle(map, {
         coordinates: [zone.lng, zone.lat],
-        radius: zone.radiusKm * 1000,
-        color: colorWithAlpha(color, 0.14),
-        strokeColor: colorWithAlpha(color, 0.42),
-        strokeWidth: 2,
+        radius: zone.radiusKm * 650,
+        color: colorWithAlpha(color, 0.06),
+        strokeColor: colorWithAlpha(color, 0.18),
+        strokeWidth: 1,
         interactive: false,
         zIndex: 1
       });
     });
+
+    return () => {
+      circles.forEach((circle) => circle.destroy());
+    };
+  }, [ready, zones]);
+
+  useEffect(() => {
+    if (!ready || !mapRef.current || !mapglRef.current) return;
+
+    const map = mapRef.current;
+    const mapgl = mapglRef.current;
     const markers = points
       .filter((point) => typeof point.lat === "number" && typeof point.lng === "number")
       .map((point) => {
-        const selected = point.id === selectedId;
-        const size = markerRenderSize(selected, mapZoom);
-        const hoverSize = markerRenderSize(true, mapZoom);
+        const size = markerRenderSize();
         const marker = new mapgl.Marker(map, {
           coordinates: [point.lng as number, point.lat as number],
-          icon: riskMarkerIcon(point, selected, mapZoom),
-          hoverIcon: riskMarkerIcon(point, true, mapZoom),
+          icon: riskMarkerIcon(point),
           size,
-          hoverSize,
           anchor: [size[0] / 2, size[1] / 2],
-          hoverAnchor: [hoverSize[0] / 2, hoverSize[1] / 2],
-          zIndex: selected ? 20 : point.source === "forecast" ? 9 : 10
+          zIndex: point.level === "critical" ? 16 : point.level === "high" ? 14 : point.source === "forecast" ? 9 : 10
         });
         marker.on("click", () => onSelect(point.id));
         return marker;
       });
 
     return () => {
-      circles.forEach((circle) => circle.destroy());
       markers.forEach((marker) => marker.destroy());
     };
-  }, [mapZoom, onSelect, points, ready, selectedId, zones]);
+  }, [onSelect, points, ready]);
 
   if (!dgisMapglApiKey) {
     return (
@@ -1453,24 +1641,42 @@ function RiskMapPage({ show }: { show: (message: string) => void }) {
   const [levelFilter, setLevelFilter] = useState<"all" | "critical" | "high" | "forecast">("all");
 
   useEffect(() => {
-    if (isDemoMode()) {
+    const demoMode = isDemoMode();
+    if (demoMode) {
       setApplications(demoApplications);
+      fetchApplicationsWithoutRedirect()
+        .then((backendApplications) => {
+          if (backendApplications.length) {
+            setApplications(mergeRiskMapApplications(backendApplications, demoApplications));
+          }
+        })
+        .catch(() => undefined);
       return;
     }
-    requestJson<{ applications?: Application[] }>("/applications/all")
+    requestJson<{ applications?: Application[] }>("/applications/risk-map")
       .then((data) => setApplications(mergeWithPublicVoronezhApplications(data.applications || [])))
       .catch((error: Error) => show(error.message));
   }, []);
 
   const points = useMemo(() => buildRiskPoints(applications), [applications]);
   const zones = useMemo(() => buildRiskZones(points), [points]);
-  const visiblePoints = points.filter((point) => {
+  const visiblePoints = useMemo(() => points.filter((point) => {
     if (levelFilter === "all") return true;
     if (levelFilter === "forecast") return point.source === "forecast";
     if (levelFilter === "high") return point.level === "high" || point.level === "critical";
     return point.level === "critical";
-  });
-  const selected = points.find((point) => point.id === selectedId) || visiblePoints[0] || points[0];
+  }), [levelFilter, points]);
+  const selected = useMemo(
+    () => points.find((point) => point.id === selectedId) || visiblePoints[0] || points[0],
+    [points, selectedId, visiblePoints]
+  );
+  const riskStats = useMemo(
+    () => visiblePoints.slice().sort((a, b) => b.score - a.score).slice(0, 12),
+    [visiblePoints]
+  );
+  const averageRiskScore = riskStats.length
+    ? Math.round(riskStats.reduce((sum, point) => sum + point.score, 0) / riskStats.length)
+    : 0;
   const criticalCount = points.filter((point) => point.level === "critical").length;
   const highCount = points.filter((point) => point.level === "high" || point.level === "critical").length;
   const forecastCount = points.filter((point) => point.source === "forecast").length;
@@ -1502,78 +1708,7 @@ function RiskMapPage({ show }: { show: (message: string) => void }) {
         <section className="risk-map-layout">
           <div className="risk-map-panel">
             <div className="risk-map-canvas" aria-label="Карта риска аварийности">
-              <DgisMapLayer points={visiblePoints} zones={zones} selectedId={selected?.id} onSelect={setSelectedId} />
-              <svg className="voronezh-map" viewBox="0 0 1000 680" role="img" aria-label="Условная схема Воронежа">
-                <defs>
-                  <linearGradient id="cityLand" x1="0" x2="1" y1="0" y2="1">
-                    <stop offset="0%" stopColor="#fff7ed" />
-                    <stop offset="55%" stopColor="#f8fafc" />
-                    <stop offset="100%" stopColor="#ecfdf5" />
-                  </linearGradient>
-                  <linearGradient id="voronezhWater" x1="0" x2="1" y1="0" y2="1">
-                    <stop offset="0%" stopColor="#bae6fd" />
-                    <stop offset="100%" stopColor="#7dd3fc" />
-                  </linearGradient>
-                </defs>
-
-                <path className="map-water" d="M650,-30 C708,38 690,92 714,153 C738,216 788,246 778,314 C768,382 714,416 730,485 C746,552 792,592 754,714 L1015,714 L1015,-30 Z" />
-                <path className="map-water-core" d="M680,-20 C726,72 704,132 738,204 C773,276 745,338 718,392 C688,452 720,506 748,566 C769,612 752,648 720,704" />
-
-                <path className="map-land city-main" d="M282,54 C382,20 486,34 560,92 C628,146 642,232 610,310 C578,386 598,444 552,528 C504,618 388,654 270,616 C168,584 92,498 78,394 C60,262 136,116 282,54 Z" />
-                <path className="map-land city-north-shape" d="M474,28 C562,24 642,70 666,144 C690,217 630,282 548,282 C460,282 402,222 414,140 C422,84 438,50 474,28 Z" />
-                <path className="map-land city-left-shape" d="M752,236 C846,242 936,312 952,412 C966,506 914,598 820,632 C738,662 674,612 664,526 C654,438 686,354 752,236 Z" />
-
-                <path className="district-fill district-komintern" d="M432,78 C514,52 610,92 630,168 C646,230 596,268 528,268 C456,268 410,220 418,150 C422,116 426,94 432,78 Z" />
-                <path className="district-fill district-center" d="M360,262 C440,220 548,244 584,314 C620,384 560,440 470,438 C384,436 322,376 330,314 C334,292 344,274 360,262 Z" />
-                <path className="district-fill district-lenin" d="M358,410 C442,386 540,424 552,508 C562,588 470,632 374,604 C300,582 260,516 286,462 C300,436 326,420 358,410 Z" />
-                <path className="district-fill district-soviet" d="M126,398 C206,344 322,358 374,440 C428,526 354,624 244,604 C150,586 78,508 90,438 C94,420 106,408 126,398 Z" />
-                <path className="district-fill district-left" d="M758,296 C836,300 904,360 918,438 C932,520 882,594 808,610 C730,628 684,576 684,500 C684,414 704,344 758,296 Z" />
-
-                <path className="city-border" d="M282,54 C382,20 486,34 560,92 C628,146 642,232 610,310 C578,386 598,444 552,528 C504,618 388,654 270,616 C168,584 92,498 78,394 C60,262 136,116 282,54 Z" />
-                <path className="city-border" d="M752,236 C846,242 936,312 952,412 C966,506 914,598 820,632 C738,662 674,612 664,526 C654,438 686,354 752,236 Z" />
-
-                <path className="major-road road-moscow" d="M520,44 C506,138 492,202 462,286 C430,374 402,480 372,624" />
-                <path className="major-road road-nine" d="M164,610 C222,540 272,472 320,394 C362,326 420,258 492,184" />
-                <path className="major-road road-plekhan" d="M118,402 C230,382 360,354 520,326 C586,314 622,304 660,284" />
-                <path className="major-road road-lomonosov" d="M410,196 C498,170 594,154 664,142" />
-                <path className="major-road road-leftbank" d="M712,514 C778,478 846,434 920,384" />
-                <path className="minor-road" d="M306,124 C338,228 350,344 330,474" />
-                <path className="minor-road" d="M208,286 C286,302 366,318 452,338" />
-                <path className="minor-road" d="M720,342 C782,384 840,454 872,552" />
-
-                <text className="street-label label-moscow" x="492" y="182">Московский пр-т</text>
-                <text className="street-label label-nine" x="230" y="520">9 Января</text>
-                <text className="street-label label-plekhan" x="316" y="350">Плехановская</text>
-                <text className="street-label label-lomonosov" x="496" y="154">Ломоносова</text>
-                <text className="street-label label-leftbank" x="770" y="472">Ленинский пр-т</text>
-                <text className="water-label" x="744" y="186">Воронежское водохранилище</text>
-
-                <text className="district-svg-label" x="502" y="122">Северный</text>
-                <text className="district-svg-label" x="430" y="322">Центр</text>
-                <text className="district-svg-label" x="400" y="500">Ленинский</text>
-                <text className="district-svg-label" x="190" y="480">Юго-Запад</text>
-                <text className="district-svg-label" x="760" y="430">Левый берег</text>
-              </svg>
-              <span className="city-outline city-right-bank" />
-              <span className="city-outline city-north" />
-              <span className="city-outline city-left-bank" />
-              <span className="district-zone zone-komintern" />
-              <span className="district-zone zone-center" />
-              <span className="district-zone zone-lenin" />
-              <span className="district-zone zone-soviet" />
-              <span className="district-zone zone-leftbank" />
-              <span className="map-road road-one" />
-              <span className="map-road road-two" />
-              <span className="map-road road-three" />
-              <span className="map-road road-four" />
-              <span className="map-river" />
-              <span className="map-reservoir" />
-              <span className="map-label river-label">Воронежское водохранилище</span>
-              <span className="map-district d1">Центральный</span>
-              <span className="map-district d2">Коминтерновский / Северный</span>
-              <span className="map-district d3">Советский / Юго-Запад</span>
-              <span className="map-district d4">Левобережный</span>
-              <span className="map-district d5">Ленинский</span>
+              <DgisMapLayer points={visiblePoints} zones={zones} onSelect={setSelectedId} />
             </div>
             <div className="risk-legend">
               <span><i className="critical" />Критический</span>
@@ -1618,6 +1753,48 @@ function RiskMapPage({ show }: { show: (message: string) => void }) {
               <div className="empty-block">Нет данных для построения карты.</div>
             )}
           </aside>
+        </section>
+
+        <section className="risk-stats-panel">
+          <div className="list-header">
+            <div>
+              <h2>Сравнение адресов по оценке</h2>
+              <p>Показаны адреса из текущего фильтра, отсортированные по убыванию риска.</p>
+            </div>
+            <div className="risk-stats-summary">
+              <span>Средняя оценка: <b>{averageRiskScore}</b></span>
+              <span>Адресов: <b>{riskStats.length}</b></span>
+            </div>
+          </div>
+          <div className="risk-stats-table-wrap">
+            <table className="risk-stats-table">
+              <thead>
+                <tr>
+                  <th>Адрес</th>
+                  <th>Оценка</th>
+                  <th>Уровень</th>
+                  <th>Источник</th>
+                </tr>
+              </thead>
+              <tbody>
+                {riskStats.map((point) => (
+                  <tr
+                    key={point.id}
+                    className={point.id === selected?.id ? "selected" : ""}
+                    onClick={() => setSelectedId(point.id)}
+                  >
+                    <td className="risk-address-cell">
+                      <strong>{point.address}</strong>
+                      <span>{point.issue}</span>
+                    </td>
+                    <td><span className={`risk-mini-score ${point.level}`}>{point.score}</span></td>
+                    <td><span className={`status-badge risk-${point.level}`}>{riskLabel(point.level)}</span></td>
+                    <td>{point.source === "forecast" ? "Прогноз" : "Заявление"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
 
         <section className="risk-zones-panel">

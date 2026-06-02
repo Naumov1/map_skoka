@@ -46,6 +46,21 @@ class ResponseCountApplications(BaseModel):
     applications: list[Applications]
 
 
+class RiskMapApplication(BaseModel):
+    id: int
+    address: str
+    street: str
+    problem: str | None = None
+    commission_analysis: str | None = None
+    status: str
+    departure_date: datetime | None = None
+
+
+class ResponseRiskMapApplications(BaseModel):
+    count: int
+    applications: list[RiskMapApplication]
+
+
 class ResponseDetailApplications(ResponseDetail):
     applications: Applications
 

@@ -88,6 +88,17 @@ async def all_applications_api(request: Request, response: Response):
 
 @gw_route(
     request_method=router.get,
+    path="/risk-map",
+    status_code=status.HTTP_200_OK,
+    service_url=settings.MAIN_SERVICE_URL,
+    response_model="app.schemas.applications.ResponseRiskMapApplications",
+)
+async def risk_map_applications_api(request: Request, response: Response):
+    pass
+
+
+@gw_route(
+    request_method=router.get,
     path="/detail/{id}",
     status_code=status.HTTP_200_OK,
     service_url=settings.MAIN_SERVICE_URL,

@@ -17,6 +17,7 @@ from app.applications.schemas import (
     ResponseCountApplications,
     ResponseApplications,
     ResponseDetailApplications,
+    ResponseRiskMapApplications,
     ResponseStreetsApplications,
 )
 from app.exceptions import (
@@ -163,6 +164,23 @@ class ApplicationsService(ServiceBase):
     async def all_applications(cls) -> ResponseCountApplications:
         data = await ApplicationsDAO.all()
         return {"count": len(data), "applications": data}
+
+    @classmethod
+    async def risk_map_applications(cls) -> ResponseRiskMapApplications:
+        data = await ApplicationsDAO.all()
+        applications = []
+        for application in data:
+            status = application.get("status")
+            applications.append({
+                "id": application.get("id"),
+                "address": application.get("address"),
+                "street": application.get("street"),
+                "problem": application.get("problem"),
+                "commission_analysis": application.get("commission_analysis"),
+                "status": getattr(status, "value", status),
+                "departure_date": application.get("departure_date"),
+            })
+        return {"count": len(applications), "applications": applications}
 
     @classmethod
     async def my_applications(cls, user_id: int):
