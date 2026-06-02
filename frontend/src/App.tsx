@@ -1,10 +1,8 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Activity,
   AlertTriangle,
   Bell,
-  Building2,
   CheckCircle2,
   ClipboardList,
   Download,
@@ -36,9 +34,38 @@ type Page = "login" | "register" | "admin-apps" | "risk-map" | "details" | "conc
 type ThemeMode = "default" | "cinema" | "lemme";
 type DgisMapInstance = {
   destroy: () => void;
+  getZoom: () => number;
+};
+type DgisMarkerInstance = {
+  destroy: () => void;
+  on: (type: string, listener: () => void) => DgisMarkerInstance;
+};
+type DgisMarkerOptions = {
+  coordinates: [number, number];
+  icon: string;
+  size: [number, number];
+  anchor: [number, number];
+  hoverIcon?: string;
+  hoverSize?: [number, number];
+  hoverAnchor?: [number, number];
+  zIndex?: number;
+};
+type DgisCircleInstance = {
+  destroy: () => void;
+};
+type DgisCircleOptions = {
+  coordinates: [number, number];
+  radius: number;
+  color: string;
+  strokeColor: string;
+  strokeWidth: number;
+  interactive?: boolean;
+  zIndex?: number;
 };
 type DgisMapglApi = {
   Map: new (container: HTMLElement, options: Record<string, unknown>) => DgisMapInstance;
+  Marker: new (map: DgisMapInstance, options: DgisMarkerOptions) => DgisMarkerInstance;
+  Circle: new (map: DgisMapInstance, options: DgisCircleOptions) => DgisCircleInstance;
 };
 
 declare global {
@@ -998,45 +1025,6 @@ function hashAddress(value: string) {
   return Array.from(value).reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) % 9973, 17);
 }
 
-function projectLng(lng: number) {
-  return (lng + 180) / 360;
-}
-
-function projectLat(lat: number) {
-  const radians = lat * Math.PI / 180;
-  return (1 - Math.log(Math.tan(radians) + 1 / Math.cos(radians)) / Math.PI) / 2;
-}
-
-function getVoronezhMapBounds() {
-  const xMin = projectLng(voronezhMapViewport.west);
-  const xMax = projectLng(voronezhMapViewport.east);
-  const yMin = projectLat(voronezhMapViewport.north);
-  const yMax = projectLat(voronezhMapViewport.south);
-  return {
-    xMin,
-    xMax,
-    yMin,
-    yMax,
-    width: xMax - xMin,
-    height: yMax - yMin
-  };
-}
-
-function coordinateToMapPosition(lat: number, lng: number) {
-  const bounds = getVoronezhMapBounds();
-  return {
-    x: Math.max(5, Math.min(95, (projectLng(lng) - bounds.xMin) / bounds.width * 100)),
-    y: Math.max(5, Math.min(95, (projectLat(lat) - bounds.yMin) / bounds.height * 100))
-  };
-}
-
-function riskMarkerPosition(point: RiskPoint) {
-  if (typeof point.lat === "number" && typeof point.lng === "number") {
-    return coordinateToMapPosition(point.lat, point.lng);
-  }
-  return { x: point.x, y: point.y };
-}
-
 function loadDgisMapgl() {
   if (window.mapgl) return Promise.resolve(window.mapgl);
   if (window.dgisMapglPromise) return window.dgisMapglPromise;
@@ -1073,26 +1061,80 @@ function loadDgisMapgl() {
   return window.dgisMapglPromise;
 }
 
-function DgisMapLayer() {
+function riskMarkerColor(level: RiskLevel) {
+  if (level === "critical") return "#dc2626";
+  if (level === "high") return "#f97316";
+  if (level === "medium") return "#f59e0b";
+  return "#0ea5e9";
+}
+
+function colorWithAlpha(hex: string, alpha: number) {
+  const channel = Math.round(Math.max(0, Math.min(1, alpha)) * 255).toString(16).padStart(2, "0");
+  return `${hex}${channel}`;
+}
+
+function markerZoomScale(zoom: number) {
+  return Math.max(0.62, Math.min(1.65, 1 + (zoom - 12.2) * 0.16));
+}
+
+function markerRenderSize(selected: boolean, zoom: number): [number, number] {
+  const baseSize = selected ? 54 : 46;
+  const size = Math.round(baseSize * markerZoomScale(zoom));
+  return [size, size];
+}
+
+function riskMarkerIcon(point: RiskPoint, selected: boolean, zoom: number) {
+  const color = riskMarkerColor(point.level);
+  const ring = selected ? "#2563eb" : "#ffffff";
+  const dash = point.source === "forecast" ? 'stroke-dasharray="6 4"' : "";
+  const [size] = markerRenderSize(selected, zoom);
+  const baseSize = selected ? 54 : 46;
+  const scale = size / baseSize;
+  const center = size / 2;
+  const ringWidth = (selected ? 5 : 4) * scale;
+  const outerRadius = (selected ? 22 : 18) * scale;
+  const innerRadius = (selected ? 16 : 13) * scale;
+  const fontSize = (selected ? 13 : 11) * scale;
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+      <filter id="shadow" x="-40%" y="-40%" width="180%" height="180%">
+        <feDropShadow dx="0" dy="7" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.28"/>
+      </filter>
+      <circle cx="${center}" cy="${center}" r="${outerRadius}" fill="${color}" opacity="0.92" stroke="${ring}" stroke-width="${ringWidth}" ${dash} filter="url(#shadow)"/>
+      <circle cx="${center}" cy="${center}" r="${innerRadius}" fill="rgba(255,255,255,0.2)" stroke="rgba(255,255,255,0.42)" stroke-width="1"/>
+      <text x="${center}" y="${center + 4}" text-anchor="middle" font-family="Arial, sans-serif" font-size="${fontSize}" font-weight="800" fill="#ffffff">${point.score}</text>
+    </svg>
+  `;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg.trim())}`;
+}
+
+function DgisMapLayer({ points, zones, selectedId, onSelect }: { points: RiskPoint[]; zones: RiskZone[]; selectedId?: string; onSelect: (id: string) => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<DgisMapInstance | null>(null);
+  const mapglRef = useRef<DgisMapglApi | null>(null);
   const [error, setError] = useState("");
+  const [ready, setReady] = useState(false);
+  const [mapZoom, setMapZoom] = useState(12.2);
 
   useEffect(() => {
     if (!dgisMapglApiKey || !containerRef.current) return;
 
     let disposed = false;
-    let map: DgisMapInstance | null = null;
     setError("");
 
     loadDgisMapgl()
       .then((mapgl) => {
         if (disposed || !containerRef.current) return;
 
-        map = new mapgl.Map(containerRef.current, {
+        mapglRef.current = mapgl;
+        const map = new mapgl.Map(containerRef.current, {
           center: [39.205, 51.668],
           zoom: 12.2,
           key: dgisMapglApiKey
         });
+        mapRef.current = map;
+        setMapZoom(map.getZoom());
+        setReady(true);
       })
       .catch(() => {
         if (!disposed) {
@@ -1102,9 +1144,77 @@ function DgisMapLayer() {
 
     return () => {
       disposed = true;
-      map?.destroy();
+      setReady(false);
+      mapRef.current?.destroy();
+      mapRef.current = null;
+      mapglRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+
+    let frame = 0;
+    let lastZoom = Number.NaN;
+
+    const tick = () => {
+      const zoom = mapRef.current?.getZoom();
+      if (typeof zoom === "number") {
+        const roundedZoom = Math.round(zoom * 4) / 4;
+        if (roundedZoom !== lastZoom) {
+          lastZoom = roundedZoom;
+          setMapZoom(roundedZoom);
+        }
+      }
+      frame = window.requestAnimationFrame(tick);
+    };
+
+    frame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frame);
+  }, [ready]);
+
+  useEffect(() => {
+    if (!ready || !mapRef.current || !mapglRef.current) return;
+
+    const map = mapRef.current;
+    const mapgl = mapglRef.current;
+    const circles = zones.map((zone) => {
+      const color = riskMarkerColor(zone.level);
+      return new mapgl.Circle(map, {
+        coordinates: [zone.lng, zone.lat],
+        radius: zone.radiusKm * 1000,
+        color: colorWithAlpha(color, 0.14),
+        strokeColor: colorWithAlpha(color, 0.42),
+        strokeWidth: 2,
+        interactive: false,
+        zIndex: 1
+      });
+    });
+    const markers = points
+      .filter((point) => typeof point.lat === "number" && typeof point.lng === "number")
+      .map((point) => {
+        const selected = point.id === selectedId;
+        const size = markerRenderSize(selected, mapZoom);
+        const hoverSize = markerRenderSize(true, mapZoom);
+        const marker = new mapgl.Marker(map, {
+          coordinates: [point.lng as number, point.lat as number],
+          icon: riskMarkerIcon(point, selected, mapZoom),
+          hoverIcon: riskMarkerIcon(point, true, mapZoom),
+          size,
+          hoverSize,
+          anchor: [size[0] / 2, size[1] / 2],
+          hoverAnchor: [hoverSize[0] / 2, hoverSize[1] / 2],
+          zIndex: selected ? 20 : point.source === "forecast" ? 9 : 10
+        });
+        marker.on("click", () => onSelect(point.id));
+        return marker;
+      });
+
+    return () => {
+      circles.forEach((circle) => circle.destroy());
+      markers.forEach((marker) => marker.destroy());
+    };
+  }, [mapZoom, onSelect, points, ready, selectedId, zones]);
 
   if (!dgisMapglApiKey) {
     return (
@@ -1392,7 +1502,7 @@ function RiskMapPage({ show }: { show: (message: string) => void }) {
         <section className="risk-map-layout">
           <div className="risk-map-panel">
             <div className="risk-map-canvas" aria-label="Карта риска аварийности">
-              <DgisMapLayer />
+              <DgisMapLayer points={visiblePoints} zones={zones} selectedId={selected?.id} onSelect={setSelectedId} />
               <svg className="voronezh-map" viewBox="0 0 1000 680" role="img" aria-label="Условная схема Воронежа">
                 <defs>
                   <linearGradient id="cityLand" x1="0" x2="1" y1="0" y2="1">
@@ -1444,7 +1554,6 @@ function RiskMapPage({ show }: { show: (message: string) => void }) {
                 <text className="district-svg-label" x="190" y="480">Юго-Запад</text>
                 <text className="district-svg-label" x="760" y="430">Левый берег</text>
               </svg>
-              <span className="map-attribution real-map-attribution">© OpenStreetMap contributors</span>
               <span className="city-outline city-right-bank" />
               <span className="city-outline city-north" />
               <span className="city-outline city-left-bank" />
@@ -1465,37 +1574,6 @@ function RiskMapPage({ show }: { show: (message: string) => void }) {
               <span className="map-district d3">Советский / Юго-Запад</span>
               <span className="map-district d4">Левобережный</span>
               <span className="map-district d5">Ленинский</span>
-              {zones.map((zone) => {
-                const position = coordinateToMapPosition(zone.lat, zone.lng);
-                return (
-                  <span
-                    className={`risk-zone-spot ${zone.level}`}
-                    key={zone.id}
-                    style={{
-                      left: `${position.x}%`,
-                      top: `${position.y}%`,
-                      "--zone-size": `${Math.max(72, Math.min(136, 48 + zone.score * 0.92))}px`
-                    } as React.CSSProperties}
-                  >
-                    <b>{zone.score}</b>
-                    <small>{zone.name}</small>
-                  </span>
-                );
-              })}
-              {visiblePoints.map((point) => (
-                <button
-                  className={`risk-marker ${point.level} ${point.source === "forecast" ? "forecast" : ""} ${selected?.id === point.id ? "selected" : ""}`}
-                  key={point.id}
-                  style={{
-                    left: `${riskMarkerPosition(point).x}%`,
-                    top: `${riskMarkerPosition(point).y}%`
-                  }}
-                  onClick={() => setSelectedId(point.id)}
-                  title={`${point.address}: ${riskLabel(point.level)} риск`}
-                >
-                  {point.source === "forecast" ? <Activity size={15} /> : <Building2 size={15} />}
-                </button>
-              ))}
             </div>
             <div className="risk-legend">
               <span><i className="critical" />Критический</span>
