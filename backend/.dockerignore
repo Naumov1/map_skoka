@@ -1,0 +1,14 @@
+.env
+.env-non-dev
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+doc/applications/
+doc/conclusion/
+*.log
